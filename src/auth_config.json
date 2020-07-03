@@ -1,0 +1,9 @@
+{
+  "domain": "spandan.eu.auth0.com",
+  "clientId": "AGZfKJLyBFxyqbBsh3cxV61fKg83bk2e",
+  "audience": "",
+  "cacheLocation": "localstorage",
+  "hasuraep": "https://glad-owl-64.hasura.app/v1/graphql",
+  "admsec": "ptznjbzcupcfawcpjevuboqlisgayppl",
+  "pollInterval": 1500
+}
