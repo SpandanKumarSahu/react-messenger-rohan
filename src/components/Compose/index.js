@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './Compose.css';
 
 import gql from 'graphql-tag';
@@ -11,13 +11,25 @@ import config from "../../auth_config.json";
 
 export default function Compose(props) {
 
-  const { user } = useAuth0();
+  const { user, isAuthenticated, getAccessTokenSilently } = useAuth0();
+  const [token, setToken] = useState('');
+
+  function getToken(){
+    let tempToken = '';
+    const asyncGetToken = async() => {
+        tempToken = await getAccessTokenSilently();
+        setToken(tempToken);
+    }
+    asyncGetToken();
+  }
+
+  getToken();
 
   const cache = new InMemoryCache();
   const link = new HttpLink({
     uri: config.hasuraep,
     headers:{
-      "x-hasura-admin-secret": config.admsec
+      "Authorization": `Bearer ${token}`
     }
   });
   const client: ApolloClient<NormalizedCacheObject> = new ApolloClient({

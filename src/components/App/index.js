@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState} from 'react';
 import Messenger from '../Messenger';
 import { useAuth0, withAuthenticationRequired } from "@auth0/auth0-react";
 import Loading from "../Loading";
@@ -11,19 +11,7 @@ import { HttpLink } from 'apollo-link-http';
 import config from "../../auth_config.json";
 
 export const App = () => {
-  const { user } = useAuth0();
-
-  const cache = new InMemoryCache();
-  const link = new HttpLink({
-    uri: config.hasuraep,
-    headers:{
-      "x-hasura-admin-secret": config.admsec
-    }
-  });
-  const client: ApolloClient<NormalizedCacheObject> = new ApolloClient({
-    cache,
-    link,
-  });
+  const { user, isAuthenticated, getAccessTokenSilently } = useAuth0();
 
   const CHECK_USER = gql`query checkUser($emailid: String){
     users(where: {
@@ -31,7 +19,7 @@ export const App = () => {
         _eq: $emailid
       }
     }){
-  		curgroup
+      curgroup
     }
   }`;
 
@@ -39,7 +27,7 @@ export const App = () => {
       insert_users(
         objects: [
           { emailid: $emailid,
-          	name: $name,
+            name: $name,
             picture: $picture
           }
         ]
@@ -54,7 +42,7 @@ export const App = () => {
 
   const CHECK_SELF_CHAT = gql`query selfChat($emailid: String) {
     self_chat(args:{
-    	userid: $emailid
+      userid: $emailid
     }){
       groupid
     }
@@ -64,7 +52,7 @@ export const App = () => {
       insert_groups(
         objects: [
           { groupname: $groupname,
-          	ischat: $ischat,
+            ischat: $ischat,
             picture: $picture
           }
         ]
@@ -94,7 +82,7 @@ export const App = () => {
       insert_participants(
         objects: [
           { groupid: $groupid,
-          	emailid: $emailid
+            emailid: $emailid
           }
         ]
       ) {
@@ -105,43 +93,61 @@ export const App = () => {
      }
    }`;
 
-  client.query({
-    query: CHECK_USER,
-    variables: {
-      emailid: user.email
-    }
-  }).then(result => {
-    if(result.data.users.length == 0){
-      client.mutate({
-        mutation:  ADD_USER,
-        variables:{
-          emailid: user.email,
-          name: user.name,
-          picture: user.picture
-        }
-      }).then(result => {
-        console.log("User added");
-      });
-    }
-    if(result.data.users.length == 0 || result.data.users[0].curgroup == null) {
-      client.query({
-        query: CHECK_SELF_CHAT,
-        variables: {
-          emailid: user.email
-        }
-      }).then(result => {
-        if(result.data.self_chat.length == 0){
-          // Add group
-          client.mutate({
-            mutation: ADD_GROUP,
-            variables: {
-              groupname: user.name,
-              picture: user.picture,
-              ischat: false
-            }
-          }).then(result => {
+  getAccessTokenSilently().then(token => {
+    /* Don't need to set token as a state */
+    const cache = new InMemoryCache();
+    const link = new HttpLink({
+      uri: config.hasuraep,
+      headers:{
+        "Authorization": `Bearer ${token}`
+      }
+    });
+    const client: ApolloClient<NormalizedCacheObject> = new ApolloClient({
+      cache,
+      link,
+    });
 
-            // Add participants
+    client.query({
+      query: CHECK_USER,
+      variables: {
+        emailid: user.email
+      }
+    }).then(result => {
+      if(result.data.users[0].curgroup == null) {
+        client.query({
+          query: CHECK_SELF_CHAT,
+          variables: {
+            emailid: user.email
+          }
+        }).then(result => {
+          if(result.data.self_chat.length == 0){
+            // Add group
+            client.mutate({
+              mutation: ADD_GROUP,
+              variables: {
+                groupname: user.name,
+                picture: user.picture,
+                ischat: false
+              }
+            }).then(result => {
+              // Add participants
+              client.mutate({
+                mutation: ADD_SELF_PARTICIPANT,
+                variables: {
+                  groupid: result.data.insert_groups.returning[0].groupid,
+                  emailid: user.email
+                }
+              }).then(result => {
+                client.mutate({
+                  mutation: UPDATE_CURGROUP,
+                  variables: {
+                    emailid: user.email,
+                    curgroup: result.data.insert_participants.returning[0].groupid
+                  }
+                });
+              });
+            });
+          } else if(result.data.self_chat[0].users.length == 0){
             client.mutate({
               mutation: ADD_SELF_PARTICIPANT,
               variables: {
@@ -149,43 +155,26 @@ export const App = () => {
                 emailid: user.email
               }
             }).then(result => {
-              console.log(result);
               client.mutate({
                 mutation: UPDATE_CURGROUP,
                 variables: {
                   emailid: user.email,
                   curgroup: result.data.insert_participants.returning[0].groupid
                 }
-              }).then(result => console.log("updated current group"));
+              });
             });
-          });
-        } else if(result.data.self_chat[0].users.length == 0){
-          client.mutate({
-            mutation: ADD_SELF_PARTICIPANT,
-            variables: {
-              groupid: result.data.insert_groups.returning[0].groupid,
-              emailid: user.email
-            }
-          }).then(result => {
+          } else {
             client.mutate({
               mutation: UPDATE_CURGROUP,
               variables: {
                 emailid: user.email,
-                curgroup: result.data.insert_participants.returning[0].groupid
+                curgroup: result.data.self_chat[0].groupid
               }
-            }).then(result => console.log("updated current group"));
-          });
-        } else {
-          client.mutate({
-            mutation: UPDATE_CURGROUP,
-            variables: {
-              emailid: user.email,
-              curgroup: result.data.self_chat[0].groupid
-            }
-          }).then(result => console.log("updated current group"));
-        }
-      });
-    }
+            });
+          }
+        });
+      }
+    });
   });
 
   return (

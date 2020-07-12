@@ -1,9 +1,10 @@
 {
   "domain": "spandan.eu.auth0.com",
   "clientId": "AGZfKJLyBFxyqbBsh3cxV61fKg83bk2e",
-  "audience": "",
+  "audience": "https://react-messenger-rohan.herokuapp.com/api/v1",
+  "scope": "read:current_user update:current_user_metadata",
   "cacheLocation": "localstorage",
-  "hasuraep": "https://glad-owl-64.hasura.app/v1/graphql",
-  "admsec": "ptznjbzcupcfawcpjevuboqlisgayppl",
-  "pollInterval": 1500
+  "hasuraep": "http://34.94.120.14/v1/graphql",
+  "hasuraepws": "ws://34.94.120.14/v1/graphql",
+  "pollInterval": 1000
 }
