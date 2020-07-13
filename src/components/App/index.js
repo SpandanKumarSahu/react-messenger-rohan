@@ -11,6 +11,7 @@ import { HttpLink } from 'apollo-link-http';
 import config from "../../auth_config.json";
 
 export const App = () => {
+
   const { user, isAuthenticated, getAccessTokenSilently } = useAuth0();
 
   const CHECK_USER = gql`query checkUser($emailid: String){
@@ -93,6 +94,23 @@ export const App = () => {
      }
    }`;
 
+  const CHECK_SELF_PARTICIPANT=gql`query selfParticipant($emailid: String, $groupid: bigint){
+    participants(where: {
+      _and: {
+       	emailid: {
+          _eq: $emailid
+        },
+        groupid: {
+          _eq: $groupid
+        }
+      }
+    }){
+    groupid
+    emailid
+    lastseen
+  }
+}`;
+
   getAccessTokenSilently().then(token => {
     /* Don't need to set token as a state */
     const cache = new InMemoryCache();
@@ -113,7 +131,7 @@ export const App = () => {
         emailid: user.email
       }
     }).then(result => {
-      if(result.data.users[0].curgroup == null) {
+      if(result.data.users[0].curgroup == null || result.data.users[0].curgroup == 0) {
         client.query({
           query: CHECK_SELF_CHAT,
           variables: {
@@ -147,28 +165,38 @@ export const App = () => {
                 });
               });
             });
-          } else if(result.data.self_chat[0].users.length == 0){
-            client.mutate({
-              mutation: ADD_SELF_PARTICIPANT,
-              variables: {
-                groupid: result.data.insert_groups.returning[0].groupid,
-                emailid: user.email
-              }
-            }).then(result => {
-              client.mutate({
-                mutation: UPDATE_CURGROUP,
-                variables: {
-                  emailid: user.email,
-                  curgroup: result.data.insert_participants.returning[0].groupid
-                }
-              });
-            });
           } else {
-            client.mutate({
-              mutation: UPDATE_CURGROUP,
+            client.query({
+              query: CHECK_SELF_PARTICIPANT,
               variables: {
                 emailid: user.email,
-                curgroup: result.data.self_chat[0].groupid
+                groupid: result.data.self_chat[0].groupid
+              }
+            }).then(result => {
+              if(result.data.participants.length == 0){
+                client.mutate({
+                  mutation: ADD_SELF_PARTICIPANT,
+                  variables: {
+                    groupid: result.data.participants[0].groupid,
+                    emailid: user.email
+                  }
+                }).then(result => {
+                  client.mutate({
+                    mutation: UPDATE_CURGROUP,
+                    variables: {
+                      emailid: user.email,
+                      curgroup: result.data.insert_participants.returning[0].groupid
+                    }
+                  });
+                });
+              } else {
+                client.mutate({
+                  mutation: UPDATE_CURGROUP,
+                  variables: {
+                    emailid: user.email,
+                    curgroup: result.data.participants[0].groupid
+                  }
+                });
               }
             });
           }

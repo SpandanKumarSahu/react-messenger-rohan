@@ -2,7 +2,6 @@ import React, {useState, useEffect, useRef} from 'react';
 import Toolbar from '../Toolbar';
 import ToolbarButton from '../ToolbarButton';
 import './ConversationList.css';
-import axios from 'axios';
 import gql from 'graphql-tag';
 
 import Switch from "react-switch";
@@ -38,15 +37,10 @@ export default function ConversationList(props) {
   const [conversations, setConversations] = useState([]);
   const [queryText, setQueryText] = useState('');
   const [checked, setChecked] = useState(true);
-  const [curGroupChecked, setCurGroupChecked] = useState(true);
+  const [curGroupChecked, setCurGroupChecked] = useState(false);
   const [token, setToken] = useState('');
 
-  const {
-    user,
-    isAuthenticated,
-    getAccessTokenSilently,
-    logout
-  } = useAuth0();
+  const { user, getAccessTokenSilently, logout } = useAuth0();
 
   const QUERY_CONVERSATIONS = gql`query getConversationList($emailid: String, $queryText: String){
     conversation_groups(args:{

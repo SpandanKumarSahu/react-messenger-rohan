@@ -11,7 +11,7 @@ import config from "../../auth_config.json";
 
 export default function Compose(props) {
 
-  const { user, isAuthenticated, getAccessTokenSilently } = useAuth0();
+  const { user, getAccessTokenSilently } = useAuth0();
   const [token, setToken] = useState('');
 
   function getToken(){
